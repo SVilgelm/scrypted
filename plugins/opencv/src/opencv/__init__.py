@@ -16,8 +16,9 @@ from scrypted_sdk.types import (ObjectDetectionGeneratorSession,ObjectDetectionS
 
 from detect import DetectPlugin
 
-# vips is already multithreaded, but needs to be kicked off the python asyncio thread.
-toThreadExecutor = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="image")
+# PIL/cv2 work is internally multithreaded, but must be kicked off the python asyncio thread
+# so plugin keepalive pings stay responsive when many cameras run detection concurrently.
+toThreadExecutor = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="image")
 
 async def to_thread(f):
     loop = asyncio.get_running_loop()
@@ -257,5 +258,6 @@ class OpenCVPlugin(DetectPlugin):
         def convert_to_src_size(point):
             return point[0] * scale, point[1] * scale
         mat = np.ndarray((height, width, 1), buffer=buffer, dtype=np.uint8)
-        detections = self.detect(mat, detection_session, (videoFrame.width, videoFrame.height), convert_to_src_size)
+        src_size = (videoFrame.width, videoFrame.height)
+        detections = await to_thread(lambda: self.detect(mat, detection_session, src_size, convert_to_src_size))
         return detections
