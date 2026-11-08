@@ -373,6 +373,10 @@ function bindPrivacyMode(device: ScryptedDevice & PrivacyMode, operatingModeServ
             target = !value;
             if (!applying)
                 apply();
+            else
+                // Mirror a queued write onto the other operating mode now; HSV3 gates streaming
+                // and recording separately and the in-flight call may take a while.
+                sync();
         });
 
         // HAP restores its persisted value when controller storage loads; the camera is the source
